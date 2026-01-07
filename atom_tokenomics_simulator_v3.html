@@ -1,0 +1,2511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATOM Tokenomics Simulator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0a;
+            --bg-card: #111111;
+            --bg-hover: #1a1a1a;
+            --border: #222222;
+            --border-light: #333333;
+            --text-primary: #ffffff;
+            --text-secondary: #888888;
+            --text-muted: #555555;
+            --accent: #ffffff;
+            --positive: #4ade80;
+            --negative: #f87171;
+        }
+        
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            min-height: 100vh; 
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+        
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 40px 24px;
+        }
+        
+        /* Header */
+        header { 
+            margin-bottom: 48px;
+            padding-bottom: 32px;
+            border-bottom: 1px solid var(--border);
+        }
+        header h1 { 
+            font-size: 2rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            margin-bottom: 8px;
+        }
+        header p { 
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            font-weight: 400;
+        }
+        
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 32px;
+            margin-bottom: 40px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 16px;
+        }
+        .nav-tab {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            padding: 8px 0;
+            position: relative;
+            transition: color 0.2s;
+        }
+        .nav-tab:hover { color: var(--text-secondary); }
+        .nav-tab.active { color: var(--text-primary); }
+        .nav-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -17px;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: var(--text-primary);
+        }
+        
+        /* ========== STICKY SCENARIO BAR ========== */
+        .scenario-pills {
+            position: sticky;
+            top: 0;
+            z-index: 110;
+            background: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 16px 0;
+            margin-bottom: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .scenario-pills.scrolled {
+            background: rgba(10, 10, 10, 0.97);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+            border-bottom: 1px solid var(--border);
+            margin-left: -40px;
+            margin-right: -40px;
+            padding: 10px 40px;
+        }
+        
+        /* Pills Row */
+        .pills-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .pill {
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        
+        .pill:hover {
+            border-color: var(--text-muted);
+            color: var(--text-primary);
+        }
+        
+        .pill.active {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            border-color: var(--text-primary);
+        }
+        
+        /* Make pills smaller when scrolled */
+        .scenario-pills.scrolled .pill {
+            padding: 6px 12px;
+            font-size: 0.75rem;
+        }
+        
+        /* Sticky Controls (Years + Mini Metrics) */
+        .sticky-controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-shrink: 0;
+        }
+        
+        /* Years Control */
+        .years-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-left: 16px;
+            border-left: 1px solid var(--border);
+        }
+        
+        .years-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .years-control input[type="range"] {
+            width: 70px;
+            height: 4px;
+            cursor: pointer;
+            accent-color: var(--text-primary);
+        }
+        
+        .years-value {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            min-width: 18px;
+            text-align: center;
+        }
+        
+        /* Mini Metrics */
+        .mini-metrics {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            padding-left: 16px;
+            border-left: 1px solid var(--border);
+        }
+        
+        .scenario-pills.scrolled .mini-metrics {
+            display: flex;
+            animation: fadeInMini 0.3s ease;
+        }
+        
+        @keyframes fadeInMini {
+            from { opacity: 0; transform: translateX(10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .mini-metric {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 55px;
+        }
+        
+        .mini-label {
+            font-size: 0.5rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            line-height: 1;
+            margin-bottom: 2px;
+        }
+        
+        .mini-value {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            line-height: 1.2;
+        }
+        
+        .mini-value.positive { color: var(--positive); }
+        .mini-value.negative { color: var(--negative); }
+        
+        /* Flash animation for mini metrics */
+        .mini-value.flash {
+            animation: miniFlash 0.4s ease;
+        }
+        
+        @keyframes miniFlash {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15); filter: brightness(1.3); }
+            100% { transform: scale(1); }
+        }
+        
+        /* Compare Row (below sticky bar) */
+        .compare-row {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 20px;
+        }
+        
+        .compare-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .compare-toggle:hover {
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+        
+        .compare-toggle.active {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            color: white;
+        }
+        
+        /* ========== MOBILE STYLES ========== */
+        @media (max-width: 900px) {
+            .scenario-pills {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+                padding: 12px 0;
+            }
+            
+            .scenario-pills.scrolled {
+                margin-left: -16px;
+                margin-right: -16px;
+                padding: 10px 16px;
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+            
+            .pills-row {
+                width: 100%;
+            }
+            
+            .scenario-pills.scrolled .pills-row {
+                width: auto;
+                flex: 1;
+            }
+            
+            .pill {
+                padding: 6px 12px;
+                font-size: 0.75rem;
+            }
+            
+            .scenario-pills.scrolled .pill {
+                padding: 5px 10px;
+                font-size: 0.7rem;
+            }
+            
+            .sticky-controls {
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .scenario-pills.scrolled .sticky-controls {
+                width: auto;
+            }
+            
+            .years-control {
+                padding-left: 0;
+                border-left: none;
+            }
+            
+            .scenario-pills.scrolled .years-control {
+                padding-left: 12px;
+                border-left: 1px solid var(--border);
+            }
+            
+            .mini-metrics {
+                gap: 10px;
+                padding-left: 12px;
+            }
+            
+            .mini-metric {
+                min-width: 45px;
+            }
+            
+            .mini-value {
+                font-size: 0.75rem;
+            }
+            
+            /* Hide Burned on mobile to save space */
+            .mini-metric-burned {
+                display: none;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .pills-row {
+                gap: 6px;
+            }
+            
+            .pill {
+                padding: 5px 10px;
+                font-size: 0.7rem;
+            }
+            
+            .scenario-pills.scrolled .pill {
+                padding: 4px 8px;
+                font-size: 0.65rem;
+            }
+            
+            .years-control input[type="range"] {
+                width: 50px;
+            }
+            
+            .years-label {
+                font-size: 0.6rem;
+            }
+            
+            .mini-metrics {
+                gap: 8px;
+                padding-left: 8px;
+            }
+            
+            .mini-metric {
+                min-width: 40px;
+            }
+            
+            .mini-label {
+                font-size: 0.45rem;
+            }
+            
+            .mini-value {
+                font-size: 0.7rem;
+            }
+        }
+        
+        /* Key Metrics Row */
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1px;
+            background: var(--border);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 40px;
+            /* Sticky behavior */
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            transition: all 0.3s ease;
+        }
+        .metrics-row.scrolled {
+            margin: 0 -40px 24px -40px;
+            padding: 0 40px;
+            background: rgba(10, 10, 10, 0.97);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+            border: none;
+            border-bottom: 1px solid var(--border);
+            border-radius: 0;
+        }
+        @media (max-width: 768px) {
+            .metrics-row { grid-template-columns: repeat(2, 1fr); }
+            .metrics-row.scrolled {
+                margin: 0 -16px 16px -16px;
+                padding: 0 16px;
+            }
+        }
+        .metric {
+            background: var(--bg-card);
+            padding: 24px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        .metrics-row.scrolled .metric {
+            padding: 12px 16px;
+            background: transparent;
+        }
+        .metric-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            transition: all 0.3s ease;
+        }
+        .metrics-row.scrolled .metric-label {
+            font-size: 0.6rem;
+            margin-bottom: 4px;
+        }
+        .metric-sublabel {
+            font-weight: 400;
+            opacity: 0.6;
+            text-transform: none;
+            letter-spacing: 0;
+            transition: all 0.3s ease;
+        }
+        .metrics-row.scrolled .metric-sublabel {
+            display: none;
+        }
+        .metric-value {
+            font-size: 1.75rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            transition: all 0.3s ease;
+        }
+        .metrics-row.scrolled .metric-value {
+            font-size: 1.35rem;
+        }
+        .metric-change {
+            font-size: 0.8rem;
+            margin-top: 4px;
+            transition: all 0.3s ease;
+        }
+        .metrics-row.scrolled .metric-change {
+            font-size: 0.65rem;
+            margin-top: 2px;
+        }
+        .metric-change.positive { color: var(--positive); }
+        .metric-change.negative { color: var(--negative); }
+        
+        /* Hide compare rows when scrolled (too cramped) */
+        .metrics-row.scrolled .metric-compare {
+            display: none !important;
+        }
+        
+        /* Value Change Flash Animation */
+        @keyframes flashPositive {
+            0% { color: inherit; transform: scale(1); }
+            30% { color: #4ade80; transform: scale(1.05); text-shadow: 0 0 12px rgba(74, 222, 128, 0.6); }
+            100% { color: inherit; transform: scale(1); }
+        }
+        @keyframes flashNegative {
+            0% { color: inherit; transform: scale(1); }
+            30% { color: #f87171; transform: scale(1.05); text-shadow: 0 0 12px rgba(248, 113, 113, 0.6); }
+            100% { color: inherit; transform: scale(1); }
+        }
+        .metric-value.flash-positive {
+            animation: flashPositive 0.5s ease;
+        }
+        .metric-value.flash-negative {
+            animation: flashNegative 0.5s ease;
+        }
+        
+        /* Burns Breakdown */
+        .burns-breakdown {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 32px;
+        }
+        .breakdown-title {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+        .breakdown-items {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        .breakdown-item {
+            display: flex;
+            flex-direction: column;
+            min-width: 100px;
+        }
+        .breakdown-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .breakdown-value {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--positive);
+        }
+        .breakdown-item.breakdown-total {
+            margin-left: auto;
+            padding-left: 24px;
+            border-left: 1px solid var(--border);
+        }
+        .breakdown-item.breakdown-total .breakdown-value {
+            color: var(--text-primary);
+        }
+        
+        /* Main Layout */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 40px;
+        }
+        @media (max-width: 1024px) {
+            .main-layout { grid-template-columns: 1fr; }
+        }
+        
+        /* Controls Panel */
+        .controls {
+            position: sticky;
+            top: 24px;
+            height: fit-content;
+        }
+        .control-section {
+            margin-bottom: 32px;
+        }
+        .control-section:last-child { margin-bottom: 0; }
+        .control-section h3 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+        }
+        
+        /* Slider */
+        .slider-row {
+            margin-bottom: 20px;
+        }
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .slider-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        .slider-value {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-variant-numeric: tabular-nums;
+        }
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: var(--border-light);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--text-primary);
+            cursor: pointer;
+            transition: transform 0.15s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+        
+        /* Toggle */
+        .toggle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding: 12px 0;
+        }
+        .toggle-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        .toggle {
+            position: relative;
+            width: 44px;
+            height: 24px;
+        }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .toggle-track {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: var(--border-light);
+            border-radius: 24px;
+            transition: 0.2s;
+        }
+        .toggle-track:before {
+            content: "";
+            position: absolute;
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            transition: 0.2s;
+        }
+        .toggle input:checked + .toggle-track { background: var(--text-primary); }
+        .toggle input:checked + .toggle-track:before { 
+            transform: translateX(20px); 
+            background: var(--bg-primary);
+        }
+        
+        /* Hydro Section */
+        .hydro-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 8px;
+        }
+        .hydro-section.disabled {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+        .hydro-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+        
+        /* Charts Area */
+        .charts-area {
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+        .chart-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+        }
+        .chart-card h3 {
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 20px;
+            color: var(--text-secondary);
+        }
+        .chart-container {
+            position: relative;
+            height: 280px;
+        }
+        .chart-caption {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-align: center;
+            margin-top: 12px;
+            font-style: italic;
+        }
+        
+        /* Hydro Impact Card */
+        .hydro-impact {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            display: none;
+        }
+        .hydro-impact.visible { display: block; }
+        .hydro-impact h3 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 20px;
+        }
+        .hydro-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+        @media (max-width: 768px) {
+            .hydro-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        .hydro-stat {
+            text-align: center;
+            padding: 16px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+        }
+        .hydro-stat-value {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .hydro-stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        
+        /* Insights */
+        .insights {
+            margin-top: 40px;
+            padding-top: 32px;
+            border-top: 1px solid var(--border);
+        }
+        .insights h3 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 20px;
+        }
+        .insight {
+            display: flex;
+            gap: 16px;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .insight:last-child { border-bottom: none; }
+        .insight-icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-card);
+            border-radius: 8px;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+        .insight-text {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+        .insight-text strong {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+        
+        /* Footer */
+        footer {
+            margin-top: 64px;
+            padding-top: 32px;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+        footer a { color: var(--text-secondary); text-decoration: none; }
+        footer a:hover { color: var(--text-primary); }
+        
+        /* Info Icons & Tooltips */
+        .info-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 14px;
+            height: 14px;
+            font-size: 10px;
+            color: var(--text-muted);
+            cursor: help;
+            position: relative;
+            margin-left: 4px;
+            vertical-align: middle;
+        }
+        .info-icon:hover {
+            color: var(--text-secondary);
+        }
+        .info-icon:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            width: 240px;
+            padding: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 400;
+            line-height: 1.5;
+            color: var(--text-secondary);
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        .info-icon:hover::before {
+            content: '';
+            position: absolute;
+            bottom: calc(100% + 2px);
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: var(--border-light);
+            z-index: 101;
+        }
+        
+        /* Tab Content */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        /* Charts Grid */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        @media (max-width: 900px) {
+            .charts-grid { grid-template-columns: 1fr; }
+        }
+        .charts-grid .chart-card .chart-container {
+            height: 220px;
+        }
+        
+        /* Compare Mode */
+        .compare-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .compare-toggle:hover {
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+        .compare-toggle.active {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            color: white;
+        }
+        .compare-bar {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            padding: 16px 24px;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(245, 158, 11, 0.1) 100%);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+        .compare-bar.visible {
+            display: flex;
+        }
+        .compare-scenario {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .scenario-badge {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+        .scenario-badge.scenario-a {
+            background: #3b82f6;
+            color: white;
+        }
+        .scenario-badge.scenario-b {
+            background: #f59e0b;
+            color: white;
+        }
+        .compare-scenario select {
+            padding: 8px 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        .compare-vs {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .compare-legend {
+            display: flex;
+            gap: 16px;
+            margin-left: auto;
+            padding-left: 20px;
+            border-left: 1px solid var(--border);
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+        
+        /* Compare Metrics */
+        .metric-compare {
+            display: none;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed var(--border);
+        }
+        .compare-mode .metric-compare {
+            display: block;
+        }
+        .metric-compare-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            margin-bottom: 4px;
+        }
+        .metric-compare-row:last-child {
+            margin-bottom: 0;
+        }
+        .compare-value-a {
+            color: #3b82f6;
+        }
+        .compare-value-b {
+            color: #f59e0b;
+        }
+        .compare-delta {
+            font-weight: 600;
+        }
+        .compare-delta.positive {
+            color: var(--positive);
+        }
+        .compare-delta.negative {
+            color: var(--negative);
+        }
+        
+        @media (max-width: 768px) {
+            .compare-bar {
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+            .compare-legend {
+                width: 100%;
+                justify-content: center;
+                margin-left: 0;
+                padding-left: 0;
+                border-left: none;
+                padding-top: 12px;
+                border-top: 1px solid var(--border);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ATOM Tokenomics Simulator</h1>
+            <p>This tool explores directional effects of different tokenomic levers under explicit assumptions.</p>
+        </header>
+        
+        <!-- Scenario Pills -->
+        <div class="scenario-pills" id="scenarioPills">
+            <div class="pills-row">
+                <button class="pill active" onclick="loadPreset('current')">Current</button>
+                <button class="pill" onclick="loadPreset('conservative')">Conservative</button>
+                <button class="pill" onclick="loadPreset('enterprise')">Enterprise</button>
+                <button class="pill" onclick="loadPreset('deflationary')">Deflationary</button>
+                <button class="pill" onclick="loadPreset('hydro')">Hydro</button>
+                <button class="pill" onclick="loadPreset('hydro_enterprise')">Hydro + Ent.</button>
+            </div>
+            
+            <div class="sticky-controls">
+                <!-- Years (always visible in sticky) -->
+                <div class="years-control">
+                    <span class="years-label">Years:</span>
+                    <input type="range" id="years" min="1" max="10" step="1" value="1" oninput="updateSimulation()">
+                    <span class="years-value" id="yearsValue">1</span>
+                </div>
+                
+                <!-- Mini Metrics (visible when scrolled) -->
+                <div class="mini-metrics" id="miniMetrics">
+                    <div class="mini-metric">
+                        <span class="mini-label">Supply</span>
+                        <span class="mini-value" id="miniSupply">~482.6M</span>
+                    </div>
+                    <div class="mini-metric">
+                        <span class="mini-label">Net/yr</span>
+                        <span class="mini-value" id="miniEmission">+48.3M</span>
+                    </div>
+                    <div class="mini-metric mini-metric-burned">
+                        <span class="mini-label">Burned</span>
+                        <span class="mini-value positive" id="miniBurned">0M</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Compare Button (separate from sticky bar) -->
+        <div class="compare-row" id="compareRow">
+            <button class="compare-toggle" id="compareToggle" onclick="toggleCompareMode()">
+                <span class="compare-icon">⚖️</span> Compare Scenarios
+            </button>
+        </div>
+        
+        <!-- Compare Mode Bar -->
+        <div class="compare-bar" id="compareBar">
+            <div class="compare-scenario">
+                <span class="scenario-badge scenario-a">A</span>
+                <select id="scenarioA" onchange="updateComparison()">
+                    <option value="current">Current</option>
+                    <option value="conservative">Conservative</option>
+                    <option value="enterprise">Enterprise</option>
+                    <option value="deflationary">Deflationary</option>
+                    <option value="hydro">Hydro</option>
+                    <option value="hydro_enterprise">Hydro + Enterprise</option>
+                    <option value="custom">Custom (Your Settings)</option>
+                </select>
+            </div>
+            <div class="compare-vs">vs</div>
+            <div class="compare-scenario">
+                <span class="scenario-badge scenario-b">B</span>
+                <select id="scenarioB" onchange="updateComparison()">
+                    <option value="current">Current</option>
+                    <option value="conservative" selected>Conservative</option>
+                    <option value="enterprise">Enterprise</option>
+                    <option value="deflationary">Deflationary</option>
+                    <option value="hydro">Hydro</option>
+                    <option value="hydro_enterprise">Hydro + Enterprise</option>
+                    <option value="custom">Custom (Your Settings)</option>
+                </select>
+            </div>
+            <div class="compare-legend">
+                <span class="legend-item"><span class="legend-color" style="background: #3b82f6;"></span> Scenario A</span>
+                <span class="legend-item"><span class="legend-color" style="background: #f59e0b;"></span> Scenario B</span>
+            </div>
+        </div>
+        
+        <!-- Key Metrics -->
+        <div class="metrics-row" id="metricsRow">
+            <div class="metric">
+                <div class="metric-label">Est. Supply <span class="metric-sublabel">(end of horizon)</span></div>
+                <div class="metric-value" id="metricSupply">482.6M</div>
+                <div class="metric-change" id="metricSupplyChange">-</div>
+                <div class="metric-compare">
+                    <div class="metric-compare-row">
+                        <span class="compare-value-a" id="compareSupplyA">-</span>
+                        <span class="compare-delta" id="compareSupplyDelta">-</span>
+                        <span class="compare-value-b" id="compareSupplyB">-</span>
+                    </div>
+                </div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Est. Staking APR <span class="metric-sublabel">(current est.)</span></div>
+                <div class="metric-value" id="metricAPR">16.9%</div>
+                <div class="metric-change" id="metricAPRChange">-</div>
+                <div class="metric-compare">
+                    <div class="metric-compare-row">
+                        <span class="compare-value-a" id="compareAPRA">-</span>
+                        <span class="compare-delta" id="compareAPRDelta">-</span>
+                        <span class="compare-value-b" id="compareAPRB">-</span>
+                    </div>
+                </div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Est. Total Burned <span class="metric-sublabel">(cumulative)</span></div>
+                <div class="metric-value" id="metricBurned">0</div>
+                <div class="metric-change" id="metricBurnedChange">-</div>
+                <div class="metric-compare">
+                    <div class="metric-compare-row">
+                        <span class="compare-value-a" id="compareBurnedA">-</span>
+                        <span class="compare-delta" id="compareBurnedDelta">-</span>
+                        <span class="compare-value-b" id="compareBurnedB">-</span>
+                    </div>
+                </div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">
+                    Avg. Net Emission
+                    <span class="info-icon" data-tooltip="Derived from simulation: emissions minus ALL burns (Tx, IBC, Enterprise, Hydro) averaged over projection period.">ⓘ</span>
+                </div>
+                <div class="metric-value" id="metricEmission">+48M</div>
+                <div class="metric-change" id="metricEmissionChange">-</div>
+                <div class="metric-compare">
+                    <div class="metric-compare-row">
+                        <span class="compare-value-a" id="compareEmissionA">-</span>
+                        <span class="compare-delta" id="compareEmissionDelta">-</span>
+                        <span class="compare-value-b" id="compareEmissionB">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Burns Breakdown -->
+        <div class="burns-breakdown" id="burnsBreakdown" style="display: none;">
+            <div class="breakdown-title">Annual Burns Breakdown</div>
+            <div class="breakdown-items">
+                <div class="breakdown-item">
+                    <span class="breakdown-label">Tx Fee Burns</span>
+                    <span class="breakdown-value" id="breakdownTxFee">0</span>
+                </div>
+                <div class="breakdown-item">
+                    <span class="breakdown-label">IBC Fee Burns</span>
+                    <span class="breakdown-value" id="breakdownIbc">0</span>
+                </div>
+                <div class="breakdown-item">
+                    <span class="breakdown-label">Enterprise Buyback</span>
+                    <span class="breakdown-value" id="breakdownEnterprise">0</span>
+                </div>
+                <div class="breakdown-item">
+                    <span class="breakdown-label">Hydro Burns</span>
+                    <span class="breakdown-value" id="breakdownHydro">0</span>
+                </div>
+                <div class="breakdown-item breakdown-total">
+                    <span class="breakdown-label">Total Burns</span>
+                    <span class="breakdown-value" id="breakdownTotal">0</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Layout -->
+        <div class="main-layout">
+            <!-- Controls -->
+            <div class="controls">
+                <div class="control-section">
+                    <h3>Inflation & Burns</h3>
+                    
+                    <div class="slider-row">
+                        <div class="slider-header">
+                            <span class="slider-label">
+                                Inflation Rate
+                                <span class="info-icon" data-tooltip="On-chain parameter controlled by governance. Current limits: 7% min, 10% max. Prop 868 to reduce min to 0% failed, but future proposals could change this.">ⓘ</span>
+                            </span>
+                            <span class="slider-value" id="inflationValue">10%</span>
+                        </div>
+                        <input type="range" id="inflation" min="0" max="10" step="0.5" value="10" oninput="updateSimulation()">
+                        <div style="font-size: 0.65rem; color: #fbbf24; margin-top: 4px;">High impact · Current on-chain: 7-10%</div>
+                    </div>
+                    
+                    <div class="slider-row">
+                        <div class="slider-header">
+                            <span class="slider-label">
+                                IBC Fee Capture
+                                <span class="info-icon" data-tooltip="Proposed fee on IBC transfers. Assumes ~50% of volume is fee-eligible (excludes internal transfers, routing). Example: 0.1% fee on $3.5B eligible volume = ~$3.5M/year.">ⓘ</span>
+                            </span>
+                            <span class="slider-value" id="ibcFeeValue">0%</span>
+                        </div>
+                        <input type="range" id="ibcFee" min="0" max="0.005" step="0.0001" value="0" oninput="updateSimulation()">
+                        <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">~50% of $7B volume assumed fee-eligible</div>
+                    </div>
+                    
+                    <div class="slider-row">
+                        <div class="slider-header">
+                            <span class="slider-label">
+                                Tx Fee Burn Rate
+                                <span class="info-icon" data-tooltip="Percentage of transaction fees burned instead of going to validators. Similar to Ethereum's EIP-1559. Currently 0% on Cosmos Hub.">ⓘ</span>
+                            </span>
+                            <span class="slider-value" id="txBurnValue">0%</span>
+                        </div>
+                        <input type="range" id="txBurnRate" min="0" max="100" step="5" value="0" oninput="updateSimulation()">
+                        <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">Low impact (~$500K/yr total fees)</div>
+                    </div>
+                    
+                    <div class="toggle-row">
+                        <span class="toggle-label">
+                            Max Supply Cap
+                            <span class="info-icon" data-tooltip="Hard cap on total ATOM supply. Currently no cap exists. Would require governance proposal to implement.">ⓘ</span>
+                        </span>
+                        <div class="toggle">
+                            <input type="checkbox" id="maxSupplyCap" onchange="updateSimulation()">
+                            <span class="toggle-track"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h3>Enterprise Adoption</h3>
+                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5;">
+                        All values are estimates. Create your own scenario!
+                    </div>
+                    
+                    <div class="slider-row">
+                        <div class="slider-header">
+                            <span class="slider-label">
+                                # of Enterprises
+                                <span class="info-icon" data-tooltip="Number of enterprises using Cosmos SDK (Fortune 500s, banks, governments). Examples: Ondo, dYdX, Provenance, Babylon are already building on Cosmos.">ⓘ</span>
+                            </span>
+                            <span class="slider-value" id="numEnterprisesValue">0</span>
+                        </div>
+                        <input type="range" id="numEnterprises" min="0" max="100" step="5" value="0" oninput="updateSimulation()">
+                    </div>
+                    
+                    <div class="slider-row">
+                        <div class="slider-header">
+                            <span class="slider-label">
+                                Revenue per Enterprise
+                                <span class="info-icon" data-tooltip="Annual licensing fee per enterprise. Proposed model: $1M-$20M/year depending on scale. Similar to Red Hat enterprise licensing.">ⓘ</span>
+                            </span>
+                            <span class="slider-value" id="revenuePerEntValue">$10M</span>
+                        </div>
+                        <input type="range" id="revenuePerEnt" min="1" max="20" step="1" value="10" oninput="updateSimulation()">
+                    </div>
+                    
+                    <div class="slider-row">
+                        <div class="slider-header">
+                            <span class="slider-label">
+                                Buyback & Burn %
+                                <span class="info-icon" data-tooltip="Percentage of SDK revenue used to buy ATOM from open market and burn. Creates direct demand pressure and reduces supply. Rest could fund development.">ⓘ</span>
+                            </span>
+                            <span class="slider-value" id="buybackPctValue">80%</span>
+                        </div>
+                        <input type="range" id="buybackPct" min="0" max="100" step="5" value="80" oninput="updateSimulation()">
+                        <div style="font-size: 0.65rem; color: #fbbf24; margin-top: 4px;">High impact parameter</div>
+                    </div>
+                    
+                    <div class="slider-row">
+                        <div class="slider-header">
+                            <span class="slider-label">
+                                ATOM Locked per Enterprise
+                                <span class="info-icon" data-tooltip="ATOM staking requirement for SDK access. Locks ATOM, reducing circulating supply. Example: 50K-500K ATOM per enterprise.">ⓘ</span>
+                            </span>
+                            <span class="slider-value" id="lockedPerEntValue">100K</span>
+                        </div>
+                        <input type="range" id="lockedPerEnt" min="0" max="500" step="25" value="100" oninput="updateSimulation()">
+                    </div>
+                    
+                    <div class="slider-row">
+                        <div class="slider-header">
+                            <span class="slider-label">
+                                ATOM Price (for buyback)
+                                <span class="info-icon" data-tooltip="Assumed ATOM price when calculating how many ATOM can be bought with the buyback amount. Lower price = more ATOM bought. Higher price = fewer ATOM bought.">ⓘ</span>
+                            </span>
+                            <span class="slider-value" id="buybackPriceValue">$4.50</span>
+                        </div>
+                        <input type="range" id="buybackPrice" min="2.5" max="1000" step="0.5" value="4.5" oninput="updateSimulation()">
+                        <div style="font-size: 0.7rem; color: #fbbf24; margin-top: 4px;">⚠️ Burn effect scales inversely with price</div>
+                    </div>
+                    </div>
+                    
+                    <!-- Enterprise Value Accrual Display -->
+                    <div id="enterpriseImpact" style="background: var(--bg-secondary); border-radius: 8px; padding: 12px; margin-top: 12px; display: none; opacity: 0.9;">
+                        <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Est. Value Accrual <span style="opacity: 0.7;">(assumption-heavy)</span></div>
+                        
+                        <div style="display: grid; gap: 10px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 6px; border-bottom: 1px solid var(--border);">
+                                <div>
+                                    <div style="font-size: 0.65rem; color: var(--text-muted);">Total Revenue</div>
+                                    <div style="font-size: 0.6rem; color: var(--text-muted); font-style: italic;" id="revenueFormula"></div>
+                                </div>
+                                <div style="font-size: 0.95rem; font-weight: 600;" id="totalEnterpriseRev">$0M</div>
+                            </div>
+                            
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 6px; border-bottom: 1px solid var(--border);">
+                                <div>
+                                    <div style="font-size: 0.65rem; color: var(--text-muted);">Buyback Amount</div>
+                                    <div style="font-size: 0.6rem; color: var(--text-muted); font-style: italic;" id="buybackFormula"></div>
+                                </div>
+                                <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);" id="buybackAmount">$0M</div>
+                            </div>
+                            
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 6px; border-bottom: 1px solid var(--border);">
+                                <div>
+                                    <div style="font-size: 0.65rem; color: var(--text-muted);">ATOM Bought & Burned</div>
+                                    <div style="font-size: 0.6rem; color: var(--text-muted); font-style: italic;" id="atomBuybackFormula"></div>
+                                </div>
+                                <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);" id="atomBuyback">~0M</div>
+                            </div>
+                            
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div style="font-size: 0.65rem; color: var(--text-muted);">ATOM Locked (from circulation)</div>
+                                    <div style="font-size: 0.6rem; color: var(--text-muted); font-style: italic;" id="lockedFormula"></div>
+                                </div>
+                                <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);" id="totalLockedAtom">0M</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h3>Hydro Integration</h3>
+                    
+                    <div class="toggle-row">
+                        <span class="toggle-label">
+                            Enable Hydro
+                            <span class="info-icon" data-tooltip="Hydro deploys Community Pool ATOM into DeFi vaults for yield. Revenue above $150K/month team cost is burned. Also provides zero-fee LST for institutional users.">ⓘ</span>
+                        </span>
+                        <div class="toggle">
+                            <input type="checkbox" id="hydroEnabled" onchange="updateSimulation()">
+                            <span class="toggle-track"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="hydro-section disabled" id="hydroSection">
+                        <div class="hydro-badge">💧 Hydro Settings</div>
+                        
+                        <div class="slider-row">
+                            <div class="slider-header">
+                                <span class="slider-label">
+                                    CP Deployment
+                                    <span class="info-icon" data-tooltip="ATOM from Community Pool deployed into Hydro's Inflow vault. Proposed: 7M ATOM. Can be clawed back by governance at any time.">ⓘ</span>
+                                </span>
+                                <span class="slider-value" id="hydroDeployValue">7M</span>
+                            </div>
+                            <input type="range" id="hydroDeploy" min="1" max="12" step="0.5" value="7" oninput="updateSimulation()">
+                        </div>
+                        
+                        <div class="slider-row">
+                            <div class="slider-header">
+                                <span class="slider-label">
+                                    Vault APR
+                                    <span class="info-icon" data-tooltip="Expected yield from Hydro's DeFi strategies (LST arbitrage, liquidity provision, leveraged staking, etc). Historical: 10-18% APR.">ⓘ</span>
+                                </span>
+                                <span class="slider-value" id="hydroAprValue">14%</span>
+                            </div>
+                            <input type="range" id="hydroApr" min="6" max="25" step="0.5" value="14" oninput="updateSimulation()">
+                        </div>
+                        
+                        <div class="slider-row">
+                            <div class="slider-header">
+                                <span class="slider-label">
+                                    LST Market Share
+                                    <span class="info-icon" data-tooltip="Hydro's zero-fee LST market share of total staked ATOM. Zero fees = 1.7% more ATOM/year vs 10% fee competitors. Target: 20% by Year 3.">ⓘ</span>
+                                </span>
+                                <span class="slider-value" id="lstShareValue">20%</span>
+                            </div>
+                            <input type="range" id="lstShare" min="0" max="40" step="1" value="20" oninput="updateSimulation()">
+                        </div>
+                        
+                        <div class="slider-row">
+                            <div class="slider-header">
+                                <span class="slider-label">
+                                    ATOM Price (Y3)
+                                    <span class="info-icon" data-tooltip="Projected ATOM price at Year 3. Affects USD value of burns and revenue. Higher price = more USD revenue from same ATOM yield.">ⓘ</span>
+                                </span>
+                                <span class="slider-value" id="atomPriceValue">$15</span>
+                            </div>
+                            <input type="range" id="atomPrice" min="2" max="50" step="1" value="15" oninput="updateSimulation()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Charts Area -->
+            <div class="charts-area">
+                <!-- Hydro Impact -->
+                <div class="hydro-impact" id="hydroImpact">
+                    <h3>Hydro Value Creation</h3>
+                    <div class="hydro-grid">
+                        <div class="hydro-stat">
+                            <div class="hydro-stat-value" id="hydroMonthlyBurn">$0</div>
+                            <div class="hydro-stat-label">Monthly Burns</div>
+                        </div>
+                        <div class="hydro-stat">
+                            <div class="hydro-stat-value" id="hydroTotalBurn">$0</div>
+                            <div class="hydro-stat-label">Cumulative Burns</div>
+                        </div>
+                        <div class="hydro-stat">
+                            <div class="hydro-stat-value" id="hydroLstTvl">0M</div>
+                            <div class="hydro-stat-label">LST TVL</div>
+                        </div>
+                        <div class="hydro-stat">
+                            <div class="hydro-stat-value" id="hydroSupplyImpact">-0M</div>
+                            <div class="hydro-stat-label">Supply Impact</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Charts -->
+                <div class="chart-card">
+                    <h3>Supply Projection</h3>
+                    <div class="chart-container">
+                        <canvas id="supplyChart"></canvas>
+                    </div>
+                    <div class="chart-caption">Compounded impact of inflation minus burns over time</div>
+                </div>
+                
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>Staking APR</h3>
+                        <div class="chart-container">
+                            <canvas id="aprChart"></canvas>
+                        </div>
+                        <div class="chart-caption">Derived from inflation, staking ratio, and community tax</div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Revenue & Burns</h3>
+                        <div class="chart-container">
+                            <canvas id="revenueChart"></canvas>
+                        </div>
+                        <div class="chart-caption">USD flows that indirectly affect ATOM supply</div>
+                    </div>
+                </div>
+                
+                <!-- Insights -->
+                <div class="insights">
+                    <h3>Analysis</h3>
+                    <div id="insightsContainer"></div>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p style="color: var(--text-secondary); margin-bottom: 8px;">Results illustrate directional impact, not guaranteed outcomes.</p>
+            <p>Data from <a href="https://forum.cosmos.network/t/request-for-proposals-atom-tokenomics-research/16508" target="_blank">Cosmos Hub Forum RFP</a> & <a href="https://forum.cosmos.network/t/deploy-community-pool-atom-into-hydro-s-inflow-vault/16549" target="_blank">Hydro Proposal</a></p>
+            <p style="margin-top: 8px;">This is not financial advice.</p>
+        </footer>
+    </div>
+    
+    <script>
+        const BASELINE = {
+            supply: 482.6,              // Million ATOM (current circulating)
+            staked: 279.7,              // Million ATOM  
+            bondRatio: 0.58,            // 58% current staking ratio
+            goalBonded: 0.67,           // 67% target (on-chain parameter)
+            inflationMax: 0.10,         // 10% max (Prop 848)
+            inflationMin: 0.07,         // 7% min (Prop 868 to reduce failed)
+            inflation: 0.10,            // Current ~10% (at max due to low staking ratio)
+            apr: 0.169,                 // ~16.9% current APR (after 2% community tax)
+            communityTax: 0.02,         // 2% to community pool
+            validators: 180,
+            ibcWeeklyVolumeUsd: 134e6,  // $134M per week in USD
+            txFeesAnnualUsd: 500000,    // ~$500K annual tx fees (estimated, currently goes to validators)
+            atomPrice: 4.50,            // USD per ATOM (approximate)
+            hydroTeamCostPerMonth: 150000  // $150K per month
+        };
+        
+        let supplyChart, aprChart, revenueChart;
+        let activePreset = 'current';
+        
+        Chart.defaults.color = '#555555';
+        Chart.defaults.borderColor = '#222222';
+        
+        function initCharts() {
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { 
+                        labels: { 
+                            color: '#888888', 
+                            font: { size: 11, family: 'Inter' },
+                            boxWidth: 12,
+                            padding: 16
+                        }
+                    }
+                },
+                scales: {
+                    x: { 
+                        grid: { color: '#1a1a1a', drawBorder: false },
+                        ticks: { color: '#555555', font: { size: 10 } }
+                    },
+                    y: { 
+                        grid: { color: '#1a1a1a', drawBorder: false },
+                        ticks: { color: '#555555', font: { size: 10 } }
+                    }
+                }
+            };
+            
+            supplyChart = new Chart(document.getElementById('supplyChart'), {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: chartOptions
+            });
+            
+            aprChart = new Chart(document.getElementById('aprChart'), {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: chartOptions
+            });
+            
+            revenueChart = new Chart(document.getElementById('revenueChart'), {
+                type: 'bar',
+                data: { labels: [], datasets: [] },
+                options: { 
+                    ...chartOptions,
+                    scales: {
+                        ...chartOptions.scales,
+                        y: { ...chartOptions.scales.y, stacked: true },
+                        x: { ...chartOptions.scales.x, stacked: true }
+                    }
+                }
+            });
+        }
+        
+        function getInputValues() {
+            // Enterprise calculations
+            const numEnterprises = parseInt(document.getElementById('numEnterprises').value);
+            const revenuePerEnt = parseFloat(document.getElementById('revenuePerEnt').value);
+            const buybackPct = parseFloat(document.getElementById('buybackPct').value) / 100;
+            const lockedPerEnt = parseFloat(document.getElementById('lockedPerEnt').value) / 1000; // Convert K to M
+            const buybackPrice = parseFloat(document.getElementById('buybackPrice').value);
+            
+            const totalEnterpriseRev = numEnterprises * revenuePerEnt; // $M/year
+            const buybackAmount = totalEnterpriseRev * buybackPct; // $M/year for buyback
+            const lockedAtom = numEnterprises * lockedPerEnt; // M ATOM locked
+            
+            return {
+                inflation: parseFloat(document.getElementById('inflation').value) / 100,
+                maxSupplyCap: document.getElementById('maxSupplyCap').checked,
+                maxSupply: 500,
+                txBurnRate: parseFloat(document.getElementById('txBurnRate').value) / 100,
+                bondRatio: BASELINE.bondRatio,
+                ibcFee: parseFloat(document.getElementById('ibcFee').value),
+                // Enterprise params
+                numEnterprises: numEnterprises,
+                revenuePerEnt: revenuePerEnt,
+                buybackPct: buybackPct,
+                lockedPerEnt: lockedPerEnt,
+                buybackPrice: buybackPrice,
+                enterpriseRev: totalEnterpriseRev,
+                buybackAmount: buybackAmount,
+                lockedAtom: lockedAtom,
+                // Hydro params
+                hydroEnabled: document.getElementById('hydroEnabled').checked,
+                hydroDeploy: parseFloat(document.getElementById('hydroDeploy').value),
+                hydroApr: parseFloat(document.getElementById('hydroApr').value) / 100,
+                lstShare: parseFloat(document.getElementById('lstShare').value) / 100,
+                atomPriceY3: parseFloat(document.getElementById('atomPrice').value),
+                years: parseInt(document.getElementById('years').value)
+            };
+        }
+        
+        function runSimulation(params) {
+            const results = {
+                years: [],
+                supply: [],              // Million ATOM
+                supplyWithoutBurns: [],  // Million ATOM
+                stakedAmount: [],        // Million ATOM
+                apr: [],                 // Percent
+                effectiveApr: [],        // Percent
+                ibcRevenue: [],          // USD millions per year
+                enterpriseRevenue: [],   // USD millions per year
+                hydroRevenue: [],        // USD millions per year
+                hydroBurn: [],           // USD millions per year
+                totalBurned: [],         // Million ATOM cumulative
+                netEmission: []          // Million ATOM per year
+            };
+            
+            let currentSupply = BASELINE.supply;  // Million ATOM
+            let currentSupplyNoBurns = BASELINE.supply;
+            const ibcAnnualVolumeUsd = BASELINE.ibcWeeklyVolumeUsd * 52;  // USD per year
+            let cumulativeBurned = 0;  // Million ATOM
+            
+            for (let year = 0; year <= params.years; year++) {
+                results.years.push(`Y${year}`);
+                
+                const t = Math.min(year / 3, 1);
+                const atomPrice = params.hydroEnabled ? 
+                    2 + (params.atomPriceY3 - 2) * t : BASELINE.atomPrice;
+                const lstShareCurrent = params.hydroEnabled ? params.lstShare * t : 0;
+                const convFeeCurrent = params.hydroEnabled ? 0.015 * t : 0;
+                
+                if (year > 0) {
+                    // FIX 5: If supply cap is active and we're at/near cap, taper inflation
+                    let effectiveInflation = params.inflation;
+                    if (params.maxSupplyCap && currentSupply >= params.maxSupply * 0.99) {
+                        // Taper inflation to zero as we approach cap
+                        const headroom = Math.max(0, params.maxSupply - currentSupply);
+                        effectiveInflation = Math.min(params.inflation, headroom / currentSupply);
+                    }
+                    
+                    // Emission in Million ATOM (using effective inflation)
+                    let emissionMAtom = currentSupply * effectiveInflation;
+                    
+                    // Burns in Million ATOM - from specific mechanisms only
+                    let burnMAtom = 0;
+                    
+                    // 1. TX Fee Burn: % of annual tx fees burned (EIP-1559 style)
+                    const txFeeBurnUsd = BASELINE.txFeesAnnualUsd * params.txBurnRate;
+                    const txFeeBurnMAtom = txFeeBurnUsd / atomPrice / 1e6;
+                    burnMAtom += txFeeBurnMAtom;
+                    
+                    // 2. IBC fee burn: (annual USD volume * fee rate) / price = ATOM, then /1e6 for Million ATOM
+                    // Note: Assumes ~50% of IBC volume is fee-eligible (conservative estimate)
+                    const ibcFeeBurnMAtom = (ibcAnnualVolumeUsd * 0.5 * params.ibcFee) / atomPrice / 1e6;
+                    burnMAtom += ibcFeeBurnMAtom;
+                    
+                    // 3. Enterprise buyback burn: buyback amount in USD / buyback price = ATOM burned
+                    // FIX 3: Keep buybacks constant (no growth) for consistency
+                    const enterpriseBuybackMAtom = (params.buybackAmount * 1e6) / params.buybackPrice / 1e6;
+                    burnMAtom += enterpriseBuybackMAtom;
+                    
+                    // Hydro calculations (all in USD first, then convert)
+                    let hydroBurnMAtom = 0;
+                    let hydroRevenueUsdPerYear = 0;
+                    let hydroBurnUsdPerYear = 0;
+                    
+                    if (params.hydroEnabled) {
+                        // Vault revenue: deploymentATOM * price * APR = USD per year
+                        const deploymentAtom = params.hydroDeploy * 1e6;  // Convert M to ATOM
+                        const vaultRevenueUsdPerYear = deploymentAtom * atomPrice * params.hydroApr;
+                        
+                        // LST TVL: supply (in ATOM) * bond ratio * LST share * price = USD
+                        const supplyAtom = currentSupply * 1e6;  // Convert M to ATOM
+                        const stakedAtom = supplyAtom * params.bondRatio;
+                        const lstTvlUsd = stakedAtom * lstShareCurrent * atomPrice;
+                        
+                        // Conversion revenue: 1% monthly volume * fee = USD per year
+                        const monthlyConvVolumeUsd = lstTvlUsd * 0.01;
+                        const convRevenueUsdPerYear = monthlyConvVolumeUsd * 12 * convFeeCurrent;
+                        
+                        hydroRevenueUsdPerYear = vaultRevenueUsdPerYear + convRevenueUsdPerYear;
+                        
+                        // Burns = Revenue - Team cost (annualized)
+                        const teamCostPerYear = BASELINE.hydroTeamCostPerMonth * 12;
+                        hydroBurnUsdPerYear = Math.max(0, hydroRevenueUsdPerYear - teamCostPerYear);
+                        
+                        // Convert USD burn to Million ATOM
+                        hydroBurnMAtom = hydroBurnUsdPerYear / atomPrice / 1e6;
+                        
+                        results.hydroRevenue.push(hydroRevenueUsdPerYear / 1e6);  // Store as $M
+                        results.hydroBurn.push(hydroBurnUsdPerYear / 1e6);        // Store as $M
+                    } else {
+                        results.hydroRevenue.push(0);
+                        results.hydroBurn.push(0);
+                    }
+                    
+                    burnMAtom += hydroBurnMAtom;
+                    cumulativeBurned += burnMAtom;
+                    
+                    currentSupply = currentSupply + emissionMAtom - burnMAtom;
+                    currentSupplyNoBurns = currentSupplyNoBurns + (currentSupplyNoBurns * params.inflation);
+                    
+                    // FIX 5: Hard cap enforcement (inflation already tapered above)
+                    if (params.maxSupplyCap && currentSupply > params.maxSupply) {
+                        currentSupply = params.maxSupply;
+                    }
+                    
+                    results.netEmission.push(emissionMAtom - burnMAtom);
+                } else {
+                    results.netEmission.push(0);
+                    results.hydroRevenue.push(0);
+                    results.hydroBurn.push(0);
+                }
+                
+                results.supply.push(currentSupply);
+                results.supplyWithoutBurns.push(currentSupplyNoBurns);
+                results.totalBurned.push(cumulativeBurned);
+                
+                // Staked amount in Million ATOM
+                const circulatingSupply = currentSupply - params.lockedAtom;
+                const staked = circulatingSupply * params.bondRatio;
+                results.stakedAmount.push(staked);
+                
+                // FIX 1: APR calculation with community tax
+                // Cosmos APR = (inflation rewards after community tax) / staked supply
+                // Inflation rewards = total supply * inflation * (1 - communityTax)
+                const inflationRewards = currentSupply * params.inflation * (1 - BASELINE.communityTax);
+                const grossApr = inflationRewards / staked;
+                results.apr.push(grossApr * 100);
+                
+                // Effective APR with Hydro LST bonus
+                let effectiveApr = grossApr;
+                if (params.hydroEnabled && lstShareCurrent > 0) {
+                    const lstBonus = (params.hydroApr - grossApr) * lstShareCurrent;
+                    effectiveApr = grossApr + Math.max(lstBonus, 0);
+                }
+                results.effectiveApr.push(effectiveApr * 100);
+                
+                // FIX 3: Revenue display - keep constant (no artificial growth)
+                const ibcRevUsdM = (ibcAnnualVolumeUsd * 0.5 * params.ibcFee) / 1e6;  // 50% fee-eligible
+                const entRevUsdM = params.enterpriseRev;  // Constant, no growth
+                results.ibcRevenue.push(ibcRevUsdM);
+                results.enterpriseRevenue.push(entRevUsdM);
+            }
+            
+            return results;
+        }
+        
+        function updateCharts(results, params) {
+            supplyChart.data.labels = results.years;
+            const datasets = [
+                {
+                    label: 'Supply',
+                    data: results.supply,
+                    borderColor: '#ffffff',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    fill: true,
+                    tension: 0.3,
+                    borderWidth: 2
+                },
+                {
+                    label: 'Staked',
+                    data: results.stakedAmount,
+                    borderColor: '#666666',
+                    backgroundColor: 'rgba(102, 102, 102, 0.05)',
+                    fill: true,
+                    tension: 0.3,
+                    borderWidth: 2
+                }
+            ];
+            
+            if (params.txBurnRate > 0 || params.ibcFee > 0 || params.hydroEnabled || params.numEnterprises > 0) {
+                datasets.push({
+                    label: 'No Burns',
+                    data: results.supplyWithoutBurns,
+                    borderColor: '#333333',
+                    borderDash: [4, 4],
+                    fill: false,
+                    tension: 0.3,
+                    borderWidth: 1
+                });
+            }
+            
+            supplyChart.data.datasets = datasets;
+            supplyChart.update();
+            
+            aprChart.data.labels = results.years;
+            aprChart.data.datasets = [
+                {
+                    label: 'Base APR',
+                    data: results.apr,
+                    borderColor: '#666666',
+                    fill: false,
+                    tension: 0.3,
+                    borderWidth: 2
+                },
+                {
+                    label: 'With Hydro LST',
+                    data: results.effectiveApr,
+                    borderColor: '#ffffff',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    fill: true,
+                    tension: 0.3,
+                    borderWidth: 2,
+                    hidden: !params.hydroEnabled
+                }
+            ];
+            aprChart.update();
+            
+            revenueChart.data.labels = results.years;
+            revenueChart.data.datasets = [
+                {
+                    label: 'IBC Fees',
+                    data: results.ibcRevenue,
+                    backgroundColor: '#333333',
+                    borderWidth: 0
+                },
+                {
+                    label: 'Enterprise',
+                    data: results.enterpriseRevenue,
+                    backgroundColor: '#555555',
+                    borderWidth: 0
+                },
+                {
+                    label: 'Hydro Burns',
+                    data: results.hydroBurn,
+                    backgroundColor: '#888888',
+                    borderWidth: 0,
+                    hidden: !params.hydroEnabled
+                }
+            ];
+            revenueChart.update();
+        }
+        
+        // Store previous values to detect changes for flash animation
+        let previousMetrics = {
+            supply: null,
+            apr: null,
+            burned: null,
+            emission: null
+        };
+        
+        // Flash animation helper
+        function flashMetric(elementId, isPositive) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            
+            // Remove existing animation classes
+            el.classList.remove('flash-positive', 'flash-negative');
+            
+            // Trigger reflow to restart animation
+            void el.offsetWidth;
+            
+            // Add appropriate flash class
+            el.classList.add(isPositive ? 'flash-positive' : 'flash-negative');
+            
+            // Remove class after animation completes
+            setTimeout(() => {
+                el.classList.remove('flash-positive', 'flash-negative');
+            }, 500);
+        }
+        
+        function updateMetrics(results, params) {
+            const lastIdx = results.years.length - 1;
+            
+            // Supply at end of projection (ESTIMATED)
+            const newSupply = results.supply[lastIdx];
+            document.getElementById('metricSupply').textContent = '~' + newSupply.toFixed(1) + 'M';
+            const supplyChange = ((newSupply - BASELINE.supply) / BASELINE.supply * 100).toFixed(1);
+            const supplyEl = document.getElementById('metricSupplyChange');
+            supplyEl.textContent = (supplyChange > 0 ? '+' : '') + supplyChange + '% over ' + params.years + 'yr';
+            supplyEl.className = 'metric-change ' + (supplyChange > 0 ? 'negative' : 'positive');
+            
+            // Flash if changed (lower supply = positive/green)
+            if (previousMetrics.supply !== null && Math.abs(newSupply - previousMetrics.supply) > 0.1) {
+                flashMetric('metricSupply', newSupply < previousMetrics.supply);
+            }
+            previousMetrics.supply = newSupply;
+            
+            // APR (ESTIMATED - depends on staking ratio which fluctuates)
+            const newApr = results.effectiveApr[lastIdx];
+            document.getElementById('metricAPR').textContent = '~' + newApr.toFixed(1) + '%';
+            const aprEl = document.getElementById('metricAPRChange');
+            aprEl.textContent = 'after 2% community tax';
+            aprEl.className = 'metric-change';
+            aprEl.style.color = 'var(--text-muted)';
+            
+            // Flash if changed (higher APR = positive/green for stakers)
+            if (previousMetrics.apr !== null && Math.abs(newApr - previousMetrics.apr) > 0.1) {
+                flashMetric('metricAPR', newApr > previousMetrics.apr);
+            }
+            previousMetrics.apr = newApr;
+            
+            // Total burned over projection period (ESTIMATED)
+            const newBurned = results.totalBurned[lastIdx];
+            document.getElementById('metricBurned').textContent = '~' + newBurned.toFixed(1) + 'M';
+            const burnPct = (newBurned / BASELINE.supply * 100).toFixed(1);
+            document.getElementById('metricBurnedChange').textContent = burnPct + '% of initial';
+            document.getElementById('metricBurnedChange').className = 'metric-change positive';
+            
+            // Flash if changed (more burns = positive/green)
+            if (previousMetrics.burned !== null && Math.abs(newBurned - previousMetrics.burned) > 0.1) {
+                flashMetric('metricBurned', newBurned > previousMetrics.burned);
+            }
+            previousMetrics.burned = newBurned;
+            
+            // Net Emission - use actual simulation results (includes ALL burns including Hydro)
+            let avgNetEmission;
+            if (params.years > 0) {
+                const totalNetEmission = results.netEmission.reduce((a, b) => a + b, 0);
+                avgNetEmission = totalNetEmission / params.years;
+            } else {
+                avgNetEmission = 0;
+            }
+            
+            document.getElementById('metricEmission').textContent = '~' + (avgNetEmission > 0 ? '+' : '') + avgNetEmission.toFixed(1) + 'M';
+            const emissionEl = document.getElementById('metricEmissionChange');
+            emissionEl.textContent = avgNetEmission > 0 ? 'avg/year (inflationary)' : 'avg/year (deflationary)';
+            emissionEl.className = 'metric-change ' + (avgNetEmission > 0 ? 'negative' : 'positive');
+            
+            // Flash if changed (lower emission = positive/green)
+            if (previousMetrics.emission !== null && Math.abs(avgNetEmission - previousMetrics.emission) > 0.1) {
+                flashMetric('metricEmission', avgNetEmission < previousMetrics.emission);
+            }
+            previousMetrics.emission = avgNetEmission;
+        }
+        
+        function updateHydroBox(results, params) {
+            const box = document.getElementById('hydroImpact');
+            const section = document.getElementById('hydroSection');
+            
+            if (params.hydroEnabled) {
+                box.classList.add('visible');
+                section.classList.remove('disabled');
+                
+                const lastIdx = results.years.length - 1;
+                const avgPrice = (2 + params.atomPriceY3) / 2;
+                
+                // Monthly burn at end of projection (results.hydroBurn is in $M/year)
+                const annualBurnUsdM = results.hydroBurn[lastIdx] || 0;
+                const monthlyBurnUsdK = (annualBurnUsdM * 1e6) / 12 / 1000;  // Convert to $K/month
+                document.getElementById('hydroMonthlyBurn').textContent = '$' + monthlyBurnUsdK.toFixed(0) + 'K';
+                
+                // Cumulative burns in $M
+                const totalBurnUsdM = results.hydroBurn.reduce((a, b) => a + b, 0);
+                document.getElementById('hydroTotalBurn').textContent = '$' + totalBurnUsdM.toFixed(1) + 'M';
+                
+                // LST TVL at end (in Million ATOM)
+                const lstTvlMAtom = results.stakedAmount[lastIdx] * params.lstShare;
+                document.getElementById('hydroLstTvl').textContent = lstTvlMAtom.toFixed(1) + 'M ATOM';
+                
+                // Supply impact: total USD burned / avg price = ATOM burned
+                const atomsBurnedM = (totalBurnUsdM * 1e6) / avgPrice / 1e6;
+                document.getElementById('hydroSupplyImpact').textContent = '-' + atomsBurnedM.toFixed(2) + 'M';
+            } else {
+                box.classList.remove('visible');
+                section.classList.add('disabled');
+            }
+        }
+        
+        function generateInsights(results, params) {
+            const insights = [];
+            const lastIdx = results.years.length - 1;
+            
+            if (params.hydroEnabled) {
+                const totalBurnUsdM = results.hydroBurn.reduce((a, b) => a + b, 0);
+                const avgPrice = (2 + params.atomPriceY3) / 2;
+                const atomsBurnedM = (totalBurnUsdM * 1e6) / avgPrice / 1e6;
+                insights.push({
+                    icon: '💧',
+                    text: `<strong>Hydro creates $${totalBurnUsdM.toFixed(1)}M in burns</strong> (~${atomsBurnedM.toFixed(2)}M ATOM) over ${params.years} year${params.years > 1 ? 's' : ''} through vault yield and LST conversions.`
+                });
+            }
+            
+            if (params.numEnterprises > 0) {
+                const atomBought = (params.buybackAmount * 1e6) / params.buybackPrice / 1e6;
+                insights.push({
+                    icon: '🏢',
+                    text: `<strong>${params.numEnterprises} enterprises × $${params.revenuePerEnt}M = $${params.enterpriseRev}M/yr revenue.</strong> ${(params.buybackPct * 100).toFixed(0)}% buyback ($${params.buybackAmount}M) at $${params.buybackPrice.toFixed(2)}/ATOM = ~${atomBought.toFixed(1)}M ATOM burned/year.`
+                });
+                
+                if (params.lockedAtom >= 1) {
+                    insights.push({
+                        icon: '🔐',
+                        text: `<strong>${params.lockedAtom.toFixed(1)}M ATOM locked</strong> (${params.numEnterprises} × ${(params.lockedPerEnt * 1000).toFixed(0)}K) removes ${(params.lockedAtom / BASELINE.supply * 100).toFixed(1)}% from circulation.`
+                    });
+                }
+            }
+            
+            if (params.ibcFee > 0) {
+                const ibcAnnualVolumeUsd = BASELINE.ibcWeeklyVolumeUsd * 52;
+                const feeEligibleVolumeUsd = ibcAnnualVolumeUsd * 0.5;  // 50% fee-eligible
+                const ibcRevUsdM = (feeEligibleVolumeUsd * params.ibcFee) / 1e6;
+                const ibcBurnAtomM = ibcRevUsdM / BASELINE.atomPrice;
+                insights.push({
+                    icon: '🌉',
+                    text: `<strong>IBC fee at ${(params.ibcFee * 100).toFixed(2)}%</strong> captures ~$${ibcRevUsdM.toFixed(1)}M/year (~${ibcBurnAtomM.toFixed(2)}M ATOM) from ~$${(feeEligibleVolumeUsd/1e9).toFixed(1)}B fee-eligible volume (50% of total).`
+                });
+            }
+            
+            // Use average net emission for insight (matches metric display)
+            const totalNetEmission = results.netEmission.reduce((a, b) => a + b, 0);
+            const avgNetEmission = params.years > 0 ? totalNetEmission / params.years : 0;
+            if (avgNetEmission < 0) {
+                insights.push({
+                    icon: '📉',
+                    text: `<strong>Net deflationary at ~${Math.abs(avgNetEmission).toFixed(1)}M ATOM/yr</strong> — supply decreases over time creating scarcity.`
+                });
+            }
+            
+            if (params.inflation < 0.05 && !params.hydroEnabled) {
+                insights.push({
+                    icon: '⚠️',
+                    text: `<strong>Low inflation warning</strong> — ${(params.inflation * 100).toFixed(1)}% may reduce staking incentives. Consider enabling Hydro for supplemental yield.`
+                });
+            }
+            
+            if (params.maxSupplyCap) {
+                insights.push({
+                    icon: '🔒',
+                    text: `<strong>Supply cap at 500M</strong> — inflation tapers to zero as cap is approached. Creates Bitcoin-like scarcity narrative.`
+                });
+            }
+            
+            const container = document.getElementById('insightsContainer');
+            container.innerHTML = insights.length ? insights.map(i => `
+                <div class="insight">
+                    <div class="insight-icon">${i.icon}</div>
+                    <div class="insight-text">${i.text}</div>
+                </div>
+            `).join('') : '<div class="insight"><div class="insight-text" style="color: var(--text-muted);">Adjust parameters to see analysis.</div></div>';
+        }
+        
+        function updateDisplayValues() {
+            document.getElementById('inflationValue').textContent = document.getElementById('inflation').value + '%';
+            document.getElementById('txBurnValue').textContent = document.getElementById('txBurnRate').value + '%';
+            document.getElementById('ibcFeeValue').textContent = (parseFloat(document.getElementById('ibcFee').value) * 100).toFixed(2) + '%';
+            
+            // Enterprise values
+            document.getElementById('numEnterprisesValue').textContent = document.getElementById('numEnterprises').value;
+            document.getElementById('revenuePerEntValue').textContent = '$' + document.getElementById('revenuePerEnt').value + 'M';
+            document.getElementById('buybackPctValue').textContent = document.getElementById('buybackPct').value + '%';
+            document.getElementById('lockedPerEntValue').textContent = document.getElementById('lockedPerEnt').value + 'K';
+            document.getElementById('buybackPriceValue').textContent = '$' + parseFloat(document.getElementById('buybackPrice').value).toFixed(2);
+            
+            // Hydro values
+            document.getElementById('hydroDeployValue').textContent = document.getElementById('hydroDeploy').value + 'M';
+            document.getElementById('hydroAprValue').textContent = document.getElementById('hydroApr').value + '%';
+            document.getElementById('lstShareValue').textContent = document.getElementById('lstShare').value + '%';
+            document.getElementById('atomPriceValue').textContent = '$' + document.getElementById('atomPrice').value;
+            document.getElementById('yearsValue').textContent = document.getElementById('years').value;
+        }
+        
+        function updateSimulation() {
+            updateDisplayValues();
+            const params = getInputValues();
+            const results = runSimulation(params);
+            updateCharts(results, params);
+            updateMetrics(results, params);
+            updateBurnsBreakdown(params, results);
+            updateHydroBox(results, params);
+            updateEnterpriseImpact(params);
+            generateInsights(results, params);
+            
+            // Update mini metrics if scrolled
+            if (window.scrollY > 120) {
+                updateMiniMetrics();
+            }
+        }
+        
+        function updateBurnsBreakdown(params, results) {
+            const breakdownEl = document.getElementById('burnsBreakdown');
+            const atomPrice = params.buybackPrice;  // Use buyback price for consistency
+            
+            // Calculate annual burns from each mechanism
+            const txFeeBurnMAtom = (BASELINE.txFeesAnnualUsd * params.txBurnRate) / atomPrice / 1e6;
+            const ibcBurnMAtom = (BASELINE.ibcWeeklyVolumeUsd * 52 * 0.5 * params.ibcFee) / atomPrice / 1e6;  // 50% fee-eligible
+            const enterpriseBurnMAtom = (params.buybackAmount * 1e6) / params.buybackPrice / 1e6;
+            
+            // Hydro burns (average per year from simulation)
+            let hydroBurnMAtom = 0;
+            if (params.hydroEnabled && results.hydroBurn) {
+                const totalHydroBurnUsdM = results.hydroBurn.reduce((a, b) => a + b, 0);
+                const avgHydroBurnUsdM = totalHydroBurnUsdM / Math.max(params.years, 1);
+                const avgPrice = (BASELINE.atomPrice + params.atomPriceY3) / 2;
+                hydroBurnMAtom = avgHydroBurnUsdM / avgPrice;
+            }
+            
+            const totalBurnMAtom = txFeeBurnMAtom + ibcBurnMAtom + enterpriseBurnMAtom + hydroBurnMAtom;
+            
+            // Show breakdown only if there are burns
+            if (totalBurnMAtom > 0.001) {
+                breakdownEl.style.display = 'block';
+                
+                document.getElementById('breakdownTxFee').textContent = txFeeBurnMAtom > 0.001 ? 
+                    txFeeBurnMAtom.toFixed(2) + 'M' : '—';
+                document.getElementById('breakdownIbc').textContent = ibcBurnMAtom > 0.001 ? 
+                    ibcBurnMAtom.toFixed(2) + 'M' : '—';
+                document.getElementById('breakdownEnterprise').textContent = enterpriseBurnMAtom > 0.001 ? 
+                    enterpriseBurnMAtom.toFixed(2) + 'M' : '—';
+                document.getElementById('breakdownHydro').textContent = hydroBurnMAtom > 0.001 ? 
+                    hydroBurnMAtom.toFixed(2) + 'M' : '—';
+                document.getElementById('breakdownTotal').textContent = totalBurnMAtom.toFixed(2) + 'M ATOM/yr';
+            } else {
+                breakdownEl.style.display = 'none';
+            }
+        }
+        
+        function updateEnterpriseImpact(params) {
+            const impactBox = document.getElementById('enterpriseImpact');
+            
+            if (params.numEnterprises > 0) {
+                impactBox.style.display = 'block';
+                
+                // Total revenue with formula
+                document.getElementById('totalEnterpriseRev').textContent = '$' + params.enterpriseRev.toFixed(0) + 'M/yr';
+                document.getElementById('revenueFormula').textContent = 
+                    `${params.numEnterprises} enterprises × $${params.revenuePerEnt}M`;
+                
+                // Buyback amount with formula
+                document.getElementById('buybackAmount').textContent = '$' + params.buybackAmount.toFixed(0) + 'M/yr';
+                document.getElementById('buybackFormula').textContent = 
+                    `$${params.enterpriseRev}M × ${(params.buybackPct * 100).toFixed(0)}%`;
+                
+                // ATOM bought & burned with formula (at user-specified price)
+                const atomBought = (params.buybackAmount * 1e6) / params.buybackPrice / 1e6;
+                document.getElementById('atomBuyback').textContent = '~' + atomBought.toFixed(2) + 'M/yr';
+                document.getElementById('atomBuybackFormula').textContent = 
+                    `$${params.buybackAmount.toFixed(0)}M ÷ $${params.buybackPrice.toFixed(2)} per ATOM`;
+                
+                // Total locked ATOM with formula
+                document.getElementById('totalLockedAtom').textContent = params.lockedAtom.toFixed(1) + 'M';
+                document.getElementById('lockedFormula').textContent = 
+                    `${params.numEnterprises} × ${(params.lockedPerEnt * 1000).toFixed(0)}K ATOM`;
+            } else {
+                impactBox.style.display = 'none';
+            }
+        }
+        
+        function loadPreset(preset) {
+            // Update pills
+            document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+            event.target.classList.add('active');
+            activePreset = preset;
+            
+            const presets = {
+                current: {
+                    inflation: 10, txBurnRate: 0, ibcFee: 0, 
+                    numEnterprises: 0, revenuePerEnt: 10, buybackPct: 80, lockedPerEnt: 100, buybackPrice: 4.5,
+                    maxSupplyCap: false, hydroEnabled: false, hydroDeploy: 7, hydroApr: 14,
+                    lstShare: 20, atomPrice: 15, years: 1
+                },
+                conservative: {
+                    inflation: 5, txBurnRate: 90, ibcFee: 0.001,
+                    numEnterprises: 20, revenuePerEnt: 10, buybackPct: 80, lockedPerEnt: 100, buybackPrice: 4.5,
+                    maxSupplyCap: false, hydroEnabled: false, hydroDeploy: 7, hydroApr: 14,
+                    lstShare: 20, atomPrice: 15, years: 1
+                },
+                enterprise: {
+                    inflation: 7, txBurnRate: 50, ibcFee: 0.0005,
+                    numEnterprises: 50, revenuePerEnt: 10, buybackPct: 80, lockedPerEnt: 100, buybackPrice: 10,
+                    maxSupplyCap: false, hydroEnabled: false, hydroDeploy: 7, hydroApr: 14,
+                    lstShare: 20, atomPrice: 15, years: 1
+                },
+                deflationary: {
+                    inflation: 3, txBurnRate: 100, ibcFee: 0.002,
+                    numEnterprises: 50, revenuePerEnt: 15, buybackPct: 90, lockedPerEnt: 200, buybackPrice: 15,
+                    maxSupplyCap: true, hydroEnabled: false, hydroDeploy: 7, hydroApr: 14,
+                    lstShare: 20, atomPrice: 15, years: 1
+                },
+                hydro: {
+                    inflation: 10, txBurnRate: 0, ibcFee: 0,
+                    numEnterprises: 0, revenuePerEnt: 10, buybackPct: 80, lockedPerEnt: 100, buybackPrice: 4.5,
+                    maxSupplyCap: false, hydroEnabled: true, hydroDeploy: 7, hydroApr: 14,
+                    lstShare: 20, atomPrice: 15, years: 1
+                },
+                hydro_enterprise: {
+                    inflation: 5, txBurnRate: 50, ibcFee: 0.001,
+                    numEnterprises: 30, revenuePerEnt: 10, buybackPct: 80, lockedPerEnt: 100, buybackPrice: 10,
+                    maxSupplyCap: false, hydroEnabled: true, hydroDeploy: 10, hydroApr: 18,
+                    lstShare: 30, atomPrice: 25, years: 1
+                }
+            };
+            
+            const p = presets[preset];
+            document.getElementById('inflation').value = p.inflation;
+            document.getElementById('txBurnRate').value = p.txBurnRate;
+            document.getElementById('ibcFee').value = p.ibcFee;
+            document.getElementById('numEnterprises').value = p.numEnterprises;
+            document.getElementById('revenuePerEnt').value = p.revenuePerEnt;
+            document.getElementById('buybackPct').value = p.buybackPct;
+            document.getElementById('lockedPerEnt').value = p.lockedPerEnt;
+            document.getElementById('buybackPrice').value = p.buybackPrice;
+            document.getElementById('maxSupplyCap').checked = p.maxSupplyCap;
+            document.getElementById('hydroEnabled').checked = p.hydroEnabled;
+            document.getElementById('hydroDeploy').value = p.hydroDeploy;
+            document.getElementById('hydroApr').value = p.hydroApr;
+            document.getElementById('lstShare').value = p.lstShare;
+            document.getElementById('atomPrice').value = p.atomPrice;
+            document.getElementById('years').value = p.years;
+            
+            updateSimulation();
+        }
+        
+        // ==================== COMPARE MODE ====================
+        let compareMode = false;
+        
+        const PRESETS = {
+            current: {
+                inflation: 10, txBurnRate: 0, ibcFee: 0, 
+                numEnterprises: 0, revenuePerEnt: 10, buybackPct: 80, lockedPerEnt: 100, buybackPrice: 4.5,
+                maxSupplyCap: false, hydroEnabled: false, hydroDeploy: 7, hydroApr: 14,
+                lstShare: 20, atomPrice: 15, years: null  // years comes from slider
+            },
+            conservative: {
+                inflation: 5, txBurnRate: 90, ibcFee: 0.001,
+                numEnterprises: 20, revenuePerEnt: 10, buybackPct: 80, lockedPerEnt: 100, buybackPrice: 4.5,
+                maxSupplyCap: false, hydroEnabled: false, hydroDeploy: 7, hydroApr: 14,
+                lstShare: 20, atomPrice: 15, years: null
+            },
+            enterprise: {
+                inflation: 7, txBurnRate: 50, ibcFee: 0.0005,
+                numEnterprises: 50, revenuePerEnt: 10, buybackPct: 80, lockedPerEnt: 100, buybackPrice: 10,
+                maxSupplyCap: false, hydroEnabled: false, hydroDeploy: 7, hydroApr: 14,
+                lstShare: 20, atomPrice: 15, years: null
+            },
+            deflationary: {
+                inflation: 3, txBurnRate: 100, ibcFee: 0.002,
+                numEnterprises: 50, revenuePerEnt: 15, buybackPct: 90, lockedPerEnt: 200, buybackPrice: 15,
+                maxSupplyCap: true, hydroEnabled: false, hydroDeploy: 7, hydroApr: 14,
+                lstShare: 20, atomPrice: 15, years: null
+            },
+            hydro: {
+                inflation: 10, txBurnRate: 0, ibcFee: 0,
+                numEnterprises: 0, revenuePerEnt: 10, buybackPct: 80, lockedPerEnt: 100, buybackPrice: 4.5,
+                maxSupplyCap: false, hydroEnabled: true, hydroDeploy: 7, hydroApr: 14,
+                lstShare: 20, atomPrice: 15, years: null
+            },
+            hydro_enterprise: {
+                inflation: 5, txBurnRate: 50, ibcFee: 0.001,
+                numEnterprises: 30, revenuePerEnt: 10, buybackPct: 80, lockedPerEnt: 100, buybackPrice: 10,
+                maxSupplyCap: false, hydroEnabled: true, hydroDeploy: 10, hydroApr: 18,
+                lstShare: 30, atomPrice: 25, years: null
+            }
+        };
+        
+        function toggleCompareMode() {
+            compareMode = !compareMode;
+            const toggle = document.getElementById('compareToggle');
+            const bar = document.getElementById('compareBar');
+            const metricsRow = document.getElementById('metricsRow');
+            
+            if (compareMode) {
+                toggle.classList.add('active');
+                bar.classList.add('visible');
+                metricsRow.classList.add('compare-mode');
+                updateComparison();
+            } else {
+                toggle.classList.remove('active');
+                bar.classList.remove('visible');
+                metricsRow.classList.remove('compare-mode');
+                // Restore normal charts
+                updateSimulation();
+            }
+        }
+        
+        function getPresetParams(presetName) {
+            const years = parseInt(document.getElementById('years').value);
+            
+            if (presetName === 'custom') {
+                return getInputValues();
+            }
+            
+            const preset = PRESETS[presetName];
+            const numEnterprises = preset.numEnterprises;
+            const revenuePerEnt = preset.revenuePerEnt;
+            const buybackPct = preset.buybackPct / 100;
+            const lockedPerEnt = preset.lockedPerEnt / 1000;
+            
+            return {
+                inflation: preset.inflation / 100,
+                maxSupplyCap: preset.maxSupplyCap,
+                maxSupply: 500,
+                txBurnRate: preset.txBurnRate / 100,
+                bondRatio: BASELINE.bondRatio,
+                ibcFee: preset.ibcFee,
+                numEnterprises: numEnterprises,
+                revenuePerEnt: revenuePerEnt,
+                buybackPct: buybackPct,
+                lockedPerEnt: lockedPerEnt,
+                buybackPrice: preset.buybackPrice,
+                enterpriseRev: numEnterprises * revenuePerEnt,
+                buybackAmount: numEnterprises * revenuePerEnt * buybackPct,
+                lockedAtom: numEnterprises * lockedPerEnt,
+                hydroEnabled: preset.hydroEnabled,
+                hydroDeploy: preset.hydroDeploy,
+                hydroApr: preset.hydroApr / 100,
+                lstShare: preset.lstShare / 100,
+                atomPriceY3: preset.atomPrice,
+                years: years
+            };
+        }
+        
+        function updateComparison() {
+            if (!compareMode) return;
+            
+            const scenarioA = document.getElementById('scenarioA').value;
+            const scenarioB = document.getElementById('scenarioB').value;
+            
+            const paramsA = getPresetParams(scenarioA);
+            const paramsB = getPresetParams(scenarioB);
+            
+            const resultsA = runSimulation(paramsA);
+            const resultsB = runSimulation(paramsB);
+            
+            updateCompareCharts(resultsA, resultsB, paramsA, paramsB);
+            updateCompareMetrics(resultsA, resultsB, paramsA, paramsB);
+        }
+        
+        function updateCompareCharts(resultsA, resultsB, paramsA, paramsB) {
+            // Supply Chart - Both scenarios
+            supplyChart.data.labels = resultsA.years;
+            supplyChart.data.datasets = [
+                {
+                    label: 'Supply (A)',
+                    data: resultsA.supply,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    borderWidth: 2
+                },
+                {
+                    label: 'Supply (B)',
+                    data: resultsB.supply,
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    borderWidth: 2
+                }
+            ];
+            supplyChart.update();
+            
+            // APR Chart
+            aprChart.data.labels = resultsA.years;
+            aprChart.data.datasets = [
+                {
+                    label: 'APR (A)',
+                    data: resultsA.effectiveApr,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    borderWidth: 2
+                },
+                {
+                    label: 'APR (B)',
+                    data: resultsB.effectiveApr,
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    borderWidth: 2
+                }
+            ];
+            aprChart.update();
+            
+            // Revenue Chart - side by side bars
+            revenueChart.data.labels = resultsA.years;
+            revenueChart.data.datasets = [
+                {
+                    label: 'Burns (A)',
+                    data: resultsA.totalBurned.map((v, i, arr) => i === 0 ? 0 : v - arr[i-1]),
+                    backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                    borderRadius: 4
+                },
+                {
+                    label: 'Burns (B)',
+                    data: resultsB.totalBurned.map((v, i, arr) => i === 0 ? 0 : v - arr[i-1]),
+                    backgroundColor: 'rgba(245, 158, 11, 0.7)',
+                    borderRadius: 4
+                }
+            ];
+            revenueChart.update();
+        }
+        
+        function updateCompareMetrics(resultsA, resultsB, paramsA, paramsB) {
+            const lastIdx = resultsA.years.length - 1;
+            
+            // Supply comparison
+            const supplyA = resultsA.supply[lastIdx];
+            const supplyB = resultsB.supply[lastIdx];
+            const supplyDelta = supplyB - supplyA;
+            
+            document.getElementById('compareSupplyA').textContent = supplyA.toFixed(1) + 'M';
+            document.getElementById('compareSupplyB').textContent = supplyB.toFixed(1) + 'M';
+            const supplyDeltaEl = document.getElementById('compareSupplyDelta');
+            supplyDeltaEl.textContent = 'Δ ' + (supplyDelta > 0 ? '+' : '') + supplyDelta.toFixed(1) + 'M';
+            supplyDeltaEl.className = 'compare-delta ' + (supplyDelta < 0 ? 'positive' : supplyDelta > 0 ? 'negative' : '');
+            
+            // APR comparison
+            const aprA = resultsA.effectiveApr[lastIdx];
+            const aprB = resultsB.effectiveApr[lastIdx];
+            const aprDelta = aprB - aprA;
+            
+            document.getElementById('compareAPRA').textContent = aprA.toFixed(1) + '%';
+            document.getElementById('compareAPRB').textContent = aprB.toFixed(1) + '%';
+            const aprDeltaEl = document.getElementById('compareAPRDelta');
+            aprDeltaEl.textContent = 'Δ ' + (aprDelta > 0 ? '+' : '') + aprDelta.toFixed(1) + '%';
+            aprDeltaEl.className = 'compare-delta ' + (aprDelta > 0 ? 'positive' : aprDelta < 0 ? 'negative' : '');
+            
+            // Burned comparison
+            const burnedA = resultsA.totalBurned[lastIdx];
+            const burnedB = resultsB.totalBurned[lastIdx];
+            const burnedDelta = burnedB - burnedA;
+            
+            document.getElementById('compareBurnedA').textContent = burnedA.toFixed(1) + 'M';
+            document.getElementById('compareBurnedB').textContent = burnedB.toFixed(1) + 'M';
+            const burnedDeltaEl = document.getElementById('compareBurnedDelta');
+            burnedDeltaEl.textContent = 'Δ ' + (burnedDelta > 0 ? '+' : '') + burnedDelta.toFixed(1) + 'M';
+            burnedDeltaEl.className = 'compare-delta ' + (burnedDelta > 0 ? 'positive' : '');
+            
+            // Net Emission comparison
+            const emissionA = resultsA.netEmission.reduce((a, b) => a + b, 0) / Math.max(paramsA.years, 1);
+            const emissionB = resultsB.netEmission.reduce((a, b) => a + b, 0) / Math.max(paramsB.years, 1);
+            const emissionDelta = emissionB - emissionA;
+            
+            document.getElementById('compareEmissionA').textContent = (emissionA > 0 ? '+' : '') + emissionA.toFixed(1) + 'M';
+            document.getElementById('compareEmissionB').textContent = (emissionB > 0 ? '+' : '') + emissionB.toFixed(1) + 'M';
+            const emissionDeltaEl = document.getElementById('compareEmissionDelta');
+            emissionDeltaEl.textContent = 'Δ ' + (emissionDelta > 0 ? '+' : '') + emissionDelta.toFixed(1) + 'M';
+            emissionDeltaEl.className = 'compare-delta ' + (emissionDelta < 0 ? 'positive' : emissionDelta > 0 ? 'negative' : '');
+            
+            // Update main metric displays with Scenario A values
+            document.getElementById('metricSupply').textContent = '~' + supplyA.toFixed(1) + 'M';
+            document.getElementById('metricAPR').textContent = '~' + aprA.toFixed(1) + '%';
+            document.getElementById('metricBurned').textContent = '~' + burnedA.toFixed(1) + 'M';
+            document.getElementById('metricEmission').textContent = '~' + (emissionA > 0 ? '+' : '') + emissionA.toFixed(1) + 'M';
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            updateSimulation();
+        });
+        
+        // Update mini metrics from main metrics
+        // Flash animation for mini metrics
+        function flashMiniMetric(elementId) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            
+            el.classList.remove('flash');
+            void el.offsetWidth; // Trigger reflow
+            el.classList.add('flash');
+            
+            setTimeout(() => {
+                el.classList.remove('flash');
+            }, 400);
+        }
+        
+        function updateMiniMetrics() {
+            const supplyEl = document.getElementById('metricSupply');
+            const emissionEl = document.getElementById('metricEmission');
+            const burnedEl = document.getElementById('metricBurned');
+            
+            if (supplyEl) {
+                const miniSupply = document.getElementById('miniSupply');
+                const oldValue = miniSupply.textContent;
+                miniSupply.textContent = supplyEl.textContent;
+                if (oldValue !== miniSupply.textContent && oldValue !== '~482.6M') {
+                    flashMiniMetric('miniSupply');
+                }
+            }
+            
+            if (emissionEl) {
+                const miniEmission = document.getElementById('miniEmission');
+                const oldValue = miniEmission.textContent;
+                miniEmission.textContent = emissionEl.textContent;
+                
+                // Color based on inflationary/deflationary
+                if (emissionEl.textContent.includes('-')) {
+                    miniEmission.className = 'mini-value positive';
+                } else if (emissionEl.textContent.includes('+')) {
+                    miniEmission.className = 'mini-value negative';
+                } else {
+                    miniEmission.className = 'mini-value';
+                }
+                
+                if (oldValue !== miniEmission.textContent && oldValue !== '+48.3M') {
+                    flashMiniMetric('miniEmission');
+                }
+            }
+            
+            if (burnedEl) {
+                const miniBurned = document.getElementById('miniBurned');
+                const oldValue = miniBurned.textContent;
+                miniBurned.textContent = burnedEl.textContent;
+                miniBurned.className = 'mini-value positive';
+                
+                if (oldValue !== miniBurned.textContent && oldValue !== '0M') {
+                    flashMiniMetric('miniBurned');
+                }
+            }
+        }
+        
+        // Sticky scenario bar + metrics on scroll
+        window.addEventListener('scroll', () => {
+            const scenarioPills = document.getElementById('scenarioPills');
+            const metricsRow = document.getElementById('metricsRow');
+            
+            if (window.scrollY > 100) {
+                scenarioPills.classList.add('scrolled');
+                if (metricsRow) metricsRow.classList.add('scrolled');
+                updateMiniMetrics();
+            } else {
+                scenarioPills.classList.remove('scrolled');
+                if (metricsRow) metricsRow.classList.remove('scrolled');
+            }
+        }, { passive: true });
+    </script>
+</body>
+</html>
